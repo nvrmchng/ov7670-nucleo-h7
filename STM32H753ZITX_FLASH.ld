@@ -165,6 +165,26 @@ SECTIONS
     . = . + _Min_Stack_Size;
     . = ALIGN(8);
   } >RAM_D1
+  
+  /* My RAM section */
+  .myRAMBlock (NOLOAD) :
+  {
+	. = ALIGN(4);
+	KEEP(*(.Img_Frame_Buffer))
+	. = ALIGN(4);
+  } >RAM_D1
+
+  .lwip_sec (NOLOAD) :
+  {
+	. = ABSOLUTE(0x30000000);
+	*(.RxDecripSection) 
+
+	. = ABSOLUTE(0x30000080);
+	*(.TxDecripSection)
+
+	. = ABSOLUTE(0x30000100);
+	*(.Rx_PoolSection)
+  } >RAM_D2
 
   /* Remove information from the standard libraries */
   /DISCARD/ :
@@ -176,5 +196,3 @@ SECTIONS
 
   .ARM.attributes 0 : { *(.ARM.attributes) }
 }
-
-

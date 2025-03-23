@@ -23,7 +23,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "TCP_Server.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -43,6 +43,10 @@
 
 /* Private variables ---------------------------------------------------------*/
 
+I2C_HandleTypeDef hi2c1;
+
+TIM_HandleTypeDef htim2;
+
 UART_HandleTypeDef huart3;
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
@@ -54,27 +58,27 @@ const osThreadAttr_t defaultTask_attributes = {
   .stack_size = 1024 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
-/* Definitions for myTask02 */
-osThreadId_t myTask02Handle;
-const osThreadAttr_t myTask02_attributes = {
-  .name = "myTask02",
+/* Definitions for UserButtonTask */
+osThreadId_t UserButtonTaskHandle;
+const osThreadAttr_t UserButtonTask_attributes = {
+  .name = "UserButtonTask",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityAboveNormal7,
 };
-/* Definitions for myTask03 */
-osThreadId_t myTask03Handle;
-const osThreadAttr_t myTask03_attributes = {
-  .name = "myTask03",
+/* Definitions for OV7670Task */
+osThreadId_t OV7670TaskHandle;
+const osThreadAttr_t OV7670Task_attributes = {
+  .name = "OV7670Task",
   .stack_size = 128 * 4,
   .priority = (osPriority_t) osPriorityHigh,
 };
-/* Definitions for myBinarySem01 */
-osSemaphoreId_t myBinarySem01Handle;
-const osSemaphoreAttr_t myBinarySem01_attributes = {
-  .name = "myBinarySem01"
+/* Definitions for OV7670BinarySemaphore */
+osSemaphoreId_t OV7670BinarySemaphoreHandle;
+const osSemaphoreAttr_t OV7670BinarySemaphore_attributes = {
+  .name = "OV7670BinarySemaphore"
 };
 /* USER CODE BEGIN PV */
-
+enum USER_BUTTON_STATE User_Button_State = USR_BTN_UNPRESSED;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -83,9 +87,12 @@ static void MPU_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_USB_OTG_FS_PCD_Init(void);
+static void MX_TIM4_Init(void);
+static void MX_TIM2_Init(void);
+static void MX_I2C1_Init(void);
 void StartDefaultTask(void *argument);
 void User_Button_Activity(void *argument);
-void SomeOtherTask(void *argument);
+void OV7670_Image_Sensor(void *argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -124,22 +131,26 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
-
+  //HAL_Delay(1000);    
   /* USER CODE END Init */
 
   /* Configure the system clock */
   SystemClock_Config();
 
   /* USER CODE BEGIN SysInit */
-
+  HAL_Delay(2000);
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
+  MX_TIM4_Init();
+  MX_TIM2_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
-
+  LL_TIM_EnableCounter(TIM4);		// Set TIMx_CR1 CEN bit
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);
   /* USER CODE END 2 */
 
   /* Init scheduler */
@@ -150,8 +161,8 @@ int main(void)
   /* USER CODE END RTOS_MUTEX */
 
   /* Create the semaphores(s) */
-  /* creation of myBinarySem01 */
-  myBinarySem01Handle = osSemaphoreNew(1, 0, &myBinarySem01_attributes);
+  /* creation of OV7670BinarySemaphore */
+  OV7670BinarySemaphoreHandle = osSemaphoreNew(1, 0, &OV7670BinarySemaphore_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -169,11 +180,11 @@ int main(void)
   /* creation of defaultTask */
   defaultTaskHandle = osThreadNew(StartDefaultTask, NULL, &defaultTask_attributes);
 
-  /* creation of myTask02 */
-  myTask02Handle = osThreadNew(User_Button_Activity, NULL, &myTask02_attributes);
+  /* creation of UserButtonTask */
+  UserButtonTaskHandle = osThreadNew(User_Button_Activity, NULL, &UserButtonTask_attributes);
 
-  /* creation of myTask03 */
-  myTask03Handle = osThreadNew(SomeOtherTask, NULL, &myTask03_attributes);
+  /* creation of OV7670Task */
+  OV7670TaskHandle = osThreadNew(OV7670_Image_Sensor, NULL, &OV7670Task_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
@@ -260,6 +271,184 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+}
+
+/**
+  * @brief I2C1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C1_Init(void)
+{
+
+  /* USER CODE BEGIN I2C1_Init 0 */
+
+  /* USER CODE END I2C1_Init 0 */
+
+  /* USER CODE BEGIN I2C1_Init 1 */
+
+  /* USER CODE END I2C1_Init 1 */
+  hi2c1.Instance = I2C1;
+  hi2c1.Init.Timing = 0x20303D54;
+  hi2c1.Init.OwnAddress1 = 0;
+  hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c1.Init.OwnAddress2 = 0;
+  hi2c1.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 15) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C1_Init 2 */
+
+  /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief TIM2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM2_Init(void)
+{
+
+  /* USER CODE BEGIN TIM2_Init 0 */
+
+  /* USER CODE END TIM2_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_IC_InitTypeDef sConfigIC = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+
+  /* USER CODE BEGIN TIM2_Init 1 */
+
+  /* USER CODE END TIM2_Init 1 */
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 0;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 16;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_PWM_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigIC.ICPolarity = TIM_INPUTCHANNELPOLARITY_RISING;
+  sConfigIC.ICSelection = TIM_ICSELECTION_DIRECTTI;
+  sConfigIC.ICPrescaler = TIM_ICPSC_DIV1;
+  sConfigIC.ICFilter = 3;
+  if (HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_IC_ConfigChannel(&htim2, &sConfigIC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM2;
+  sConfigOC.Pulse = 8;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM2_Init 2 */
+  htim2.Instance->CR1 |= TIM_CR1_UDIS;	// disable update event generation
+  HAL_TIM_RegisterCallback(&htim2, HAL_TIM_IC_CAPTURE_CB_ID, OV7670_Sync_Output_Detection);
+  /* USER CODE END TIM2_Init 2 */
+  HAL_TIM_MspPostInit(&htim2);
+
+}
+
+/**
+  * @brief TIM4 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM4_Init(void)
+{
+
+  /* USER CODE BEGIN TIM4_Init 0 */
+
+  /* USER CODE END TIM4_Init 0 */
+
+  LL_TIM_InitTypeDef TIM_InitStruct = {0};
+
+  LL_GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+  /* Peripheral clock enable */
+  LL_APB1_GRP1_EnableClock(LL_APB1_GRP1_PERIPH_TIM4);
+
+  LL_AHB4_GRP1_EnableClock(LL_AHB4_GRP1_PERIPH_GPIOD);
+  /**TIM4 GPIO Configuration
+  PD15   ------> TIM4_CH4
+  */
+  GPIO_InitStruct.Pin = LL_GPIO_PIN_15;
+  GPIO_InitStruct.Mode = LL_GPIO_MODE_ALTERNATE;
+  GPIO_InitStruct.Speed = LL_GPIO_SPEED_FREQ_VERY_HIGH;
+  GPIO_InitStruct.OutputType = LL_GPIO_OUTPUT_PUSHPULL;
+  GPIO_InitStruct.Pull = LL_GPIO_PULL_NO;
+  GPIO_InitStruct.Alternate = LL_GPIO_AF_2;
+  LL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /* USER CODE BEGIN TIM4_Init 1 */
+
+  /* USER CODE END TIM4_Init 1 */
+  TIM_InitStruct.Prescaler = 480;
+  TIM_InitStruct.CounterMode = LL_TIM_COUNTERMODE_UP;
+  TIM_InitStruct.Autoreload = 65535;
+  TIM_InitStruct.ClockDivision = LL_TIM_CLOCKDIVISION_DIV1;
+  LL_TIM_Init(TIM4, &TIM_InitStruct);
+  LL_TIM_DisableARRPreload(TIM4);
+  LL_TIM_SetClockSource(TIM4, LL_TIM_CLOCKSOURCE_INTERNAL);
+  LL_TIM_SetTriggerOutput(TIM4, LL_TIM_TRGO_RESET);
+  LL_TIM_DisableMasterSlaveMode(TIM4);
+  LL_TIM_IC_SetActiveInput(TIM4, LL_TIM_CHANNEL_CH4, LL_TIM_ACTIVEINPUT_DIRECTTI);
+  LL_TIM_IC_SetPrescaler(TIM4, LL_TIM_CHANNEL_CH4, LL_TIM_ICPSC_DIV1);
+  LL_TIM_IC_SetFilter(TIM4, LL_TIM_CHANNEL_CH4, LL_TIM_IC_FILTER_FDIV1_N4);
+  LL_TIM_IC_SetPolarity(TIM4, LL_TIM_CHANNEL_CH4, LL_TIM_IC_POLARITY_RISING);
+  /* USER CODE BEGIN TIM4_Init 2 */
+  LL_TIM_DisableUpdateEvent(TIM4);
+  /* USER CODE END TIM4_Init 2 */
+
 }
 
 /**
@@ -359,12 +548,16 @@ static void MX_GPIO_Init(void)
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOG_CLK_ENABLE();
-  __HAL_RCC_GPIOE_CLK_ENABLE();
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(RESET_GPIO_Port, RESET_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOB, LD1_Pin|LD3_Pin, GPIO_PIN_RESET);
@@ -381,12 +574,27 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : RESET_Pin */
+  GPIO_InitStruct.Pin = RESET_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_OD;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_MEDIUM;
+  HAL_GPIO_Init(RESET_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pins : LD1_Pin LD3_Pin */
   GPIO_InitStruct.Pin = LD1_Pin|LD3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : D2_Pin D3_Pin D7_Pin D1_Pin
+                           D6_Pin D0_Pin D4_Pin D5_Pin */
+  GPIO_InitStruct.Pin = D2_Pin|D3_Pin|D7_Pin|D1_Pin
+                          |D6_Pin|D0_Pin|D4_Pin|D5_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : USB_OTG_FS_PWR_EN_Pin */
   GPIO_InitStruct.Pin = USB_OTG_FS_PWR_EN_Pin;
@@ -409,7 +617,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 6, 0);
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -417,7 +625,18 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+void Delay_us_Rough(uint16_t delay_us)
+{
+	uint16_t cycle;
+	uint32_t one_us = SystemCoreClock / 1000000;
+	uint32_t count;
 
+	for(cycle = 0; cycle < delay_us; cycle++){
+		for(count = 0; count < one_us; count++){
+			// This should produce ~1 us or more delay
+		}
+	}
+}
 /* USER CODE END 4 */
 
 /* USER CODE BEGIN Header_StartDefaultTask */
@@ -432,10 +651,14 @@ void StartDefaultTask(void *argument)
   /* init code for LWIP */
   MX_LWIP_Init();
   /* USER CODE BEGIN 5 */
+  TCP_Server_Init();
+  LL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	//HAL_GPIO_TogglePin(LD1_GPIO_Port, LD1_Pin);	// for debug breakpoint purpose only
+	//osThreadTerminate(NULL);	// delete this task
+    osThreadYield();
   }
   /* USER CODE END 5 */
 }
@@ -453,27 +676,118 @@ void User_Button_Activity(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+	switch(User_Button_State){
+	case USR_BTN_UNPRESSED:	// do nothing (Look at Sch, PC13 pulled down by R64 100k res, so it'd be logic 0 at this moment)
+							osDelay( pdMS_TO_TICKS(50) );
+							break;
+	case DEBOUNCE_UNPRESSED:	HAL_Delay(100);
+								if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_SET){	// Check if PC13 is really pulled high
+									LL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+									User_Button_State = USR_BTN_PRESSED;
+								} else {	User_Button_State = USR_BTN_UNPRESSED;	}	// go back to previous state
+								break;
+	case USR_BTN_PRESSED:	// if user btn is pressed, PC13 pin should be pulled high to logic 1 by R74 330Ohm res
+							if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET){	// Check if user button unpressed/released
+								User_Button_State = DEBOUNCE_PRESSED;
+							}
+							break;
+	case DEBOUNCE_PRESSED:	HAL_Delay(100);
+							if(HAL_GPIO_ReadPin(B1_GPIO_Port, B1_Pin) == GPIO_PIN_RESET){
+								User_Button_State = USR_BTN_UNPRESSED;
+								osSemaphoreRelease(OV7670BinarySemaphoreHandle);	// give the semaphore
+							} else {	User_Button_State = USR_BTN_PRESSED;	}	// go back to previous state
+							break;
+	default:	User_Button_State = USR_BTN_UNPRESSED;
+				break;
+	}
   }
   /* USER CODE END User_Button_Activity */
 }
 
-/* USER CODE BEGIN Header_SomeOtherTask */
+/* USER CODE BEGIN Header_OV7670_Image_Sensor */
 /**
-* @brief Function implementing the myTask03 thread.
+* @brief Function implementing the OV7670Task thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_SomeOtherTask */
-void SomeOtherTask(void *argument)
+/* USER CODE END Header_OV7670_Image_Sensor */
+void OV7670_Image_Sensor(void *argument)
 {
-  /* USER CODE BEGIN SomeOtherTask */
+  /* USER CODE BEGIN OV7670_Image_Sensor */
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    switch(OV7670_State){
+	case IMG_SENSOR_STOP:
+		OV7670_Init_Pixel_Array();
+		osSemaphoreAcquire(OV7670BinarySemaphoreHandle, osWaitForever);		// wait for semaphore passed
+		OV7670_State = IMG_SENSOR_INIT;
+		break;
+	case IMG_SENSOR_INIT:
+		if(OV7670_Init_Setting() == false){
+			OV7670_State = IMG_SENSOR_STOP;
+			break;
+		}
+		HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);	// Enable Input Capture for VSYNC pin
+		OV7670_State = IMG_SENSOR_WAIT_VSYNC;
+		break;
+	case IMG_SENSOR_WAIT_VSYNC:
+		break;
+	case IMG_SENSOR_VSYNC:
+		vs_count++;
+		if(vs_count <= 1){		// Skip the first frame when the new setting just applied
+			OV7670_State = IMG_SENSOR_WAIT_VSYNC;
+			break;
+		}
+		HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_3);	// Enable Input Capture for HREF pin
+		OV7670_State = IMG_SENSOR_WAIT_HREF;
+		hs_count = 0;
+		break;
+	case IMG_SENSOR_WAIT_HREF:
+		break;
+	case IMG_SENSOR_HREF:
+		pclk_count = 0;
+		LL_TIM_CC_EnableChannel(TIM4, LL_TIM_CHANNEL_CH4);
+		OV7670_State = IMG_SENSOR_PCLK;
+		break;
+	case IMG_SENSOR_PCLK:
+		do {
+			if(LL_TIM_IsActiveFlag_CC4(TIM4) == 1UL){
+				LL_TIM_ClearFlag_CC4(TIM4);
+				OV7670_Grab_Pixel_Byte_Output();		// Grab it!
+				pclk_count++;
+			}
+		} while(LL_GPIO_IsInputPinSet(HREF_GPIO_Port, HREF_Pin) == 1UL);
+
+		OV7670_Grab_Pixel_Byte_Output();		// Grab the last one!
+
+		// hs_count should be incremented after pixels grab due to used as pix_array row index
+		hs_count++;
+
+		LL_TIM_CC_DisableChannel(TIM4, LL_TIM_CHANNEL_CH4);
+		LL_TIM_ClearFlag_CC4(TIM4);
+		OV7670_State = IMG_SENSOR_WAIT_HREF;
+		break;
+	case IMG_SENSOR_COMPLETE:
+		HAL_TIM_IC_Stop_IT(&htim2, TIM_CHANNEL_1);
+		HAL_TIM_IC_Stop_IT(&htim2, TIM_CHANNEL_3);
+
+		LL_TIM_CC_DisableChannel(TIM4, LL_TIM_CHANNEL_CH4);
+		LL_TIM_ClearFlag_CC4(TIM4);
+
+		LL_GPIO_TogglePin(LD3_GPIO_Port, LD3_Pin);
+		osSemaphoreAcquire(OV7670BinarySemaphoreHandle, osWaitForever);		// wait for semaphore passed
+		OV7670_State = IMG_SENSOR_RESTART;
+		break;
+	case IMG_SENSOR_RESTART:
+		HAL_TIM_IC_Start_IT(&htim2, TIM_CHANNEL_1);	// Enable Input Capture for VSYNC pin
+		OV7670_State = IMG_SENSOR_WAIT_VSYNC;
+		break;
+	default:
+		break;
+	}
   }
-  /* USER CODE END SomeOtherTask */
+  /* USER CODE END OV7670_Image_Sensor */
 }
 
  /* MPU Configuration */
