@@ -9,7 +9,7 @@ void OV7670_Init_Pixel_Array(void)
 	uint16_t i, j;
 	for(i = 0; i < 240; i++){
 		for(j = 0; j < 640; j++){
-			pix_array[i][j] = 0x43;	// set all to black
+			pix_array[i][j] = 0x00;	// set all to black
 		}
 	}
 }
@@ -35,10 +35,27 @@ bool OV7670_Init_Setting(void)
 
 	if(sccb_read_data != 0x76){	return false;	}	// Verify the PID is correct = 0x76
 
+/** Register DBLV (0x6B) **/
+	//sccb_sub_address = 0x6B;
+	//sccb_write_data[0] = sccb_sub_address;
+	//sccb_write_data[1] = 0x4A;		// PLL will multiply input clock by x4
+	
+	//if(HAL_I2C_Master_Transmit(&hi2c1, sccb_ip_address, sccb_write_data, 2, 5) != HAL_OK)		/* 3-Phase Write */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(HAL_I2C_Master_Receive(&hi2c1, (sccb_ip_address | 0x0001), &sccb_read_data, 1, 5) != HAL_OK)		/* 2-Phase Read */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(sccb_read_data != 0x4A){	return false;	}	// Verify that DBLV register has been written to 0x4A
+
 /** Register CLKRC (0x11) **/
 	sccb_sub_address = 0x11;
 	sccb_write_data[0] = sccb_sub_address;
-	sccb_write_data[1] = 0x9D;		// Set internal clock prescaler to 29 so we'd expect PCLK = XCLK / (29 + 1) = 15 MHz / 30 = 0.5 MHz
+	sccb_write_data[1] = 0x97;	// Set internal clock prescaler to 59 so we'd expect PCLK = XCLK x PLL / 2*(59 + 1) = 15 MHz x 4 / (2x60) = 0.5 MHz
 
 	if(HAL_I2C_Master_Transmit(&hi2c1, sccb_ip_address, sccb_write_data, 2, 5) != HAL_OK)		/* 3-Phase Write */
 	{	error_stat = HAL_I2C_GetError(&hi2c1);	}
@@ -50,7 +67,7 @@ bool OV7670_Init_Setting(void)
 	Delay_us_Rough(100);
 	if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
 
-	if(sccb_read_data != 0x9D){	return false;	}	// Verify that CLKRC register has been written to 0x9D
+	if(sccb_read_data != 0x97){	return false;	}	// Verify that CLKRC register has been written to 0x9D
 
 /** Register COM7 (0x12) **/
 	sccb_sub_address = 0x12;
@@ -85,6 +102,91 @@ bool OV7670_Init_Setting(void)
 	if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
 
 	if(sccb_read_data != 0xD0){	return false;	}	// Verify that COM15 register has been written to 0xD0
+	
+/** Register COM11 (0x3B) **/
+	//sccb_sub_address = 0x3B;
+	//sccb_write_data[0] = sccb_sub_address;
+	//sccb_write_data[1] = 0x08;		// Select 50 Hz as Banding Filter value (because Indonesia AC signal is 50 Hz based)
+	
+	//if(HAL_I2C_Master_Transmit(&hi2c1, sccb_ip_address, sccb_write_data, 2, 5) != HAL_OK)		/* 3-Phase Write */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(HAL_I2C_Master_Receive(&hi2c1, (sccb_ip_address | 0x0001), &sccb_read_data, 1, 5) != HAL_OK)		/* 2-Phase Read */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(sccb_read_data != 0x08){	return false;	}	// Verify that COM11 register has been written to 0x08
+	
+/** Register COM8 (0x13) **/
+	//sccb_sub_address = 0x13;
+	//sccb_write_data[0] = sccb_sub_address;
+	//sccb_write_data[1] = 0xAF;		// Turn On the Banding Filter function
+	
+	//if(HAL_I2C_Master_Transmit(&hi2c1, sccb_ip_address, sccb_write_data, 2, 5) != HAL_OK)		/* 3-Phase Write */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(HAL_I2C_Master_Receive(&hi2c1, (sccb_ip_address | 0x0001), &sccb_read_data, 1, 5) != HAL_OK)		/* 2-Phase Read */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(sccb_read_data != 0xAF){	return false;	}	// Verify that COM8 register has been written to 0xAF
+	
+/** Register COM14 (0x3E) **/
+	//sccb_sub_address = 0x3E;
+	//sccb_write_data[0] = sccb_sub_address;
+	//sccb_write_data[1] = 0x1C;		// Scaling PCLK, manual scaling enable for predefined res, PCLK divider set to divide by 16
+	
+	//if(HAL_I2C_Master_Transmit(&hi2c1, sccb_ip_address, sccb_write_data, 2, 5) != HAL_OK)		/* 3-Phase Write */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(HAL_I2C_Master_Receive(&hi2c1, (sccb_ip_address | 0x0001), &sccb_read_data, 1, 5) != HAL_OK)		/* 2-Phase Read */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(sccb_read_data != 0x1C){	return false;	}	// Verify that COM14 register has been written to 0x1C
+	
+/** Register SCALING_PCLK_DIV (0x73) **/
+	//sccb_sub_address = 0x73;
+	//sccb_write_data[0] = sccb_sub_address;
+	//sccb_write_data[1] = 0xF4;		// Enable clock divider, PCLK divider set to divide by 16
+	
+	//if(HAL_I2C_Master_Transmit(&hi2c1, sccb_ip_address, sccb_write_data, 2, 5) != HAL_OK)		/* 3-Phase Write */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(HAL_I2C_Master_Receive(&hi2c1, (sccb_ip_address | 0x0001), &sccb_read_data, 1, 5) != HAL_OK)		/* 2-Phase Read */
+	//{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	//Delay_us_Rough(100);
+	//if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	//if(sccb_read_data != 0xF4){	return false;	}	// Verify that SCALING_PCLK_DIV register has been written to 0xF4
+	
+/** Register COM16 (0x41) **/
+	sccb_sub_address = 0x41;
+	sccb_write_data[0] = sccb_sub_address;
+	sccb_write_data[1] = 0x18;		// De-noise function to reduce noise level is set to automatic mode
+	
+	if(HAL_I2C_Master_Transmit(&hi2c1, sccb_ip_address, sccb_write_data, 2, 5) != HAL_OK)		/* 3-Phase Write */
+	{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	Delay_us_Rough(100);
+	if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	if(HAL_I2C_Master_Receive(&hi2c1, (sccb_ip_address | 0x0001), &sccb_read_data, 1, 5) != HAL_OK)		/* 2-Phase Read */
+	{	error_stat = HAL_I2C_GetError(&hi2c1);	}
+	Delay_us_Rough(100);
+	if(error_stat != HAL_I2C_ERROR_NONE){	return false;	}
+
+	if(sccb_read_data != 0x18){	return false;	}	// Verify that COM16 register has been written to 0x18
 
 	//OV7670_Init_Pixel_Array();
 	return true;

@@ -1,6 +1,6 @@
 ../Drivers/STM32H7xx_HAL_Driver/Inc/stm32h7xx_ll_gpio.h:803:26:LL_GPIO_IsInputPinSet	2
 ../Core/Src/OV7670.c:7:6:OV7670_Init_Pixel_Array	3
-../Core/Src/OV7670.c:17:6:OV7670_Init_Setting	21
-../Core/Src/OV7670.c:93:6:OV7670_Sync_Output_Detection	7
-../Core/Src/OV7670.c:107:6:OV7670_Grab_Pixel_Byte_Output	8
-../Core/Src/OV7670.c:123:10:OV7670_Get_Pix_Array_By_Row	1
+../Core/Src/OV7670.c:17:6:OV7670_Init_Setting	26
+../Core/Src/OV7670.c:195:6:OV7670_Sync_Output_Detection	7
+../Core/Src/OV7670.c:209:6:OV7670_Grab_Pixel_Byte_Output	8
+../Core/Src/OV7670.c:225:10:OV7670_Get_Pix_Array_By_Row	1
